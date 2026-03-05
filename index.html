@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>用紙カール量予測シミュレーター</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --panel: #111827;
+    --panel2: #1a2235;
+    --border: #2a3a55;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --accent3: #7fff6b;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --danger: #ff4444;
+    --positive: #4ade80;
+    --warning: #fbbf24;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px 20px;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+
+  .header-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    border: 1px solid var(--accent);
+    padding: 4px 12px;
+    margin-bottom: 16px;
+    border-radius: 2px;
+  }
+
+  h1 {
+    font-size: clamp(22px, 4vw, 36px);
+    font-weight: 700;
+    background: linear-gradient(135deg, #00d4ff, #ffffff, #ff6b35);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.2;
+    margin-bottom: 10px;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 1px;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+    background: var(--panel);
+    padding: 6px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+
+  .tab-btn {
+    flex: 1;
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 7px;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .tab-btn.active {
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: 700;
+  }
+
+  .tab-btn:not(.active):hover {
+    color: var(--text);
+    background: var(--panel2);
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Layout */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  @media (max-width: 900px) {
+    .grid-2 { grid-template-columns: 1fr; }
+    .grid-3 { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* Cards */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+  }
+
+  .card-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+  }
+
+  /* Form elements */
+  .form-group {
+    margin-bottom: 14px;
+  }
+
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 5px;
+    font-weight: 500;
+  }
+
+  label span.unit {
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+
+  input[type="number"], select {
+    width: 100%;
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 12px;
+    border-radius: 7px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    appearance: none;
+  }
+
+  input[type="number"]:focus, select:focus {
+    border-color: var(--accent);
+  }
+
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  .range-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .range-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    min-width: 60px;
+    text-align: right;
+  }
+
+  .radio-group {
+    display: flex;
+    gap: 8px;
+  }
+
+  .radio-btn {
+    flex: 1;
+    padding: 7px 10px;
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 12px;
+    font-family: 'Noto Sans JP', sans-serif;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .radio-btn.selected {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0,212,255,0.08);
+  }
+
+  /* Run button */
+  .run-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--accent), #0090bb);
+    color: var(--bg);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+    margin-top: 10px;
+  }
+
+  .run-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(0,212,255,0.3);
+  }
+
+  .run-btn:active { transform: translateY(0); }
+
+  /* Results */
+  .result-main {
+    text-align: center;
+    padding: 24px;
+    background: var(--panel2);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .result-main::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(0,212,255,0.05) 0%, transparent 70%);
+  }
+
+  .result-label {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 8px;
+  }
+
+  .result-value {
+    font-size: 52px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .result-unit {
+    font-size: 14px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .result-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .result-mini {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .result-mini-label {
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    letter-spacing: 1px;
+  }
+
+  .result-mini-val {
+    font-size: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+  }
+
+  /* Curl visualization */
+  .curl-viz {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .curl-canvas-wrap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 160px;
+  }
+
+  canvas#curlCanvas {
+    border-radius: 6px;
+  }
+
+  /* Severity bar */
+  .severity-bar {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  .sev-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .sev-track {
+    height: 12px;
+    background: var(--panel);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    border: 1px solid var(--border);
+  }
+
+  .sev-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .sev-text {
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 1px;
+  }
+
+  /* Breakdown chart */
+  .breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .breakdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+  }
+
+  .breakdown-name {
+    width: 130px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .breakdown-bar-wrap {
+    flex: 1;
+    height: 8px;
+    background: var(--panel);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .breakdown-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+  }
+
+  .breakdown-val {
+    width: 60px;
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  /* Formula display */
+  .formula-box {
+    background: #0a1628;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 12px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    line-height: 1.8;
+  }
+
+  /* Status */
+  .status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Placeholder */
+  .placeholder {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .placeholder-icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+    opacity: 0.4;
+  }
+
+  /* Info note */
+  .info-note {
+    background: rgba(0,212,255,0.06);
+    border: 1px solid rgba(0,212,255,0.2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-top: 12px;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 16px 0;
+  }
+
+  /* Section heading in decurler tab */
+  .section-head {
+    font-size: 11px;
+    color: var(--accent2);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="header-tag">Fuji Xerox Technical Report No.21 — 2012</div>
+    <h1>用紙カール量予測シミュレーター</h1>
+    <p class="subtitle">Simulation Technology of Paper Curl in Electrophotographic Printer</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('transport')">📄 搬送経路カール予測</button>
+    <button class="tab-btn" onclick="switchTab('decurler')">🔄 デカーラ矯正量予測</button>
+    <button class="tab-btn" onclick="switchTab('about')">📐 モデル説明</button>
+  </div>
+
+  <!-- Tab 1: Transport Path Curl -->
+  <div id="tab-transport" class="tab-panel active">
+    <div class="grid-2">
+      <!-- Inputs -->
+      <div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-title">用紙物性パラメーター</div>
+
+          <div class="form-group">
+            <label>紙種</label>
+            <div class="radio-group">
+              <div class="radio-btn selected" onclick="selectPaper(this,'plain')">普通紙</div>
+              <div class="radio-btn" onclick="selectPaper(this,'recycled')">再生紙</div>
+              <div class="radio-btn" onclick="selectPaper(this,'thick')">厚紙</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>用紙厚さ <span class="unit">[μm]</span></label>
+            <div class="range-row">
+              <input type="range" id="paperThickness" min="60" max="300" value="90"
+                     oninput="updateRange('paperThickness','thicknessVal')">
+              <span class="range-val" id="thicknessVal">90</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>弾性係数 E_h (長時定数) <span class="unit">[MPa]</span></label>
+            <div class="range-row">
+              <input type="range" id="Eh" min="100" max="2000" value="800"
+                     oninput="updateRange('Eh','EhVal')">
+              <span class="range-val" id="EhVal">800</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>弾性係数 E_s (短時定数) <span class="unit">[MPa]</span></label>
+            <div class="range-row">
+              <input type="range" id="Es" min="100" max="3000" value="1500"
+                     oninput="updateRange('Es','EsVal')">
+              <span class="range-val" id="EsVal">1500</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>伸縮率カール係数 Ce <span class="unit">[1/m / %MC]</span></label>
+            <div class="range-row">
+              <input type="range" id="Ce" min="0" max="5" step="0.1" value="1.5"
+                     oninput="updateRange('Ce','CeVal')">
+              <span class="range-val" id="CeVal">1.5</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-title">温湿度・定着条件</div>
+
+          <div class="form-group">
+            <label>定着後初期含水率 <span class="unit">[%]</span></label>
+            <div class="range-row">
+              <input type="range" id="W_ini" min="2" max="10" step="0.1" value="5"
+                     oninput="updateRange('W_ini','W_iniVal')">
+              <span class="range-val" id="W_iniVal">5.0</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>機内収束含水率 W_cnv <span class="unit">[%]</span></label>
+            <div class="range-row">
+              <input type="range" id="W_cnv" min="1" max="8" step="0.1" value="3"
+                     oninput="updateRange('W_cnv','W_cnvVal')">
+              <span class="range-val" id="W_cnvVal">3.0</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>含水率変化時定数 τ_W <span class="unit">[s]</span></label>
+            <div class="range-row">
+              <input type="range" id="tau_W" min="0.5" max="10" step="0.1" value="2"
+                     oninput="updateRange('tau_W','tau_WVal')">
+              <span class="range-val" id="tau_WVal">2.0</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>定着後カール初期曲率 γ_F <span class="unit">[1/m]</span></label>
+            <div class="range-row">
+              <input type="range" id="gamma_F" min="-10" max="10" step="0.5" value="3"
+                     oninput="updateRange('gamma_F','gamma_FVal')">
+              <span class="range-val" id="gamma_FVal">3.0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">搬送経路条件</div>
+
+          <div class="form-group">
+            <label>搬送時間 <span class="unit">[s]</span></label>
+            <div class="range-row">
+              <input type="range" id="t_total" min="0.1" max="5" step="0.1" value="1.0"
+                     oninput="updateRange('t_total','t_totalVal')">
+              <span class="range-val" id="t_totalVal">1.0</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>搬送経路最大変形曲率 <span class="unit">[1/m]</span></label>
+            <div class="range-row">
+              <input type="range" id="gamma_path" min="0" max="200" step="5" value="50"
+                     oninput="updateRange('gamma_path','gamma_pathVal')">
+              <span class="range-val" id="gamma_pathVal">50</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>排出後経過時間（カール安定化）<span class="unit">[s]</span></label>
+            <div class="range-row">
+              <input type="range" id="t_relax" min="10" max="300" step="10" value="60"
+                     oninput="updateRange('t_relax','t_relaxVal')">
+              <span class="range-val" id="t_relaxVal">60</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>セット面</label>
+            <div class="radio-group">
+              <div class="radio-btn selected" id="sideA" onclick="selectSide(this,'felt')">フェルトサイド</div>
+              <div class="radio-btn" id="sideB" onclick="selectSide(this,'wire')">ワイヤーサイド</div>
+            </div>
+          </div>
+
+          <button class="run-btn" onclick="runTransportSim()">▶ シミュレーション実行</button>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div id="transport-results">
+        <div class="card">
+          <div class="card-title">予測結果</div>
+          <div class="placeholder">
+            <div class="placeholder-icon">📊</div>
+            パラメーターを設定して<br>シミュレーションを実行してください
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 2: Decurler -->
+  <div id="tab-decurler" class="tab-panel">
+    <div class="grid-2">
+      <div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-title">デカーラ装置パラメーター</div>
+
+          <div class="form-group">
+            <label>剛体ローラー曲率 <span class="unit">[1/m]</span></label>
+            <div class="radio-group">
+              <div class="radio-btn selected" onclick="selectDCurv(this,125)">125</div>
+              <div class="radio-btn" onclick="selectDCurv(this,250)">250</div>
+              <div class="radio-btn" onclick="selectDCurv(this,333)">333</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>押し込み量 <span class="unit">[mm]</span></label>
+            <div class="range-row">
+              <input type="range" id="pushIn" min="0.5" max="3.0" step="0.5" value="1.5"
+                     oninput="updateRange('pushIn','pushInVal')">
+              <span class="range-val" id="pushInVal">1.5</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>搬送速度 <span class="unit">[mm/s]</span></label>
+            <div class="radio-group">
+              <div class="radio-btn selected" onclick="selectSpeed(this,117)">117</div>
+              <div class="radio-btn" onclick="selectSpeed(this,226)">226</div>
+              <div class="radio-btn" onclick="selectSpeed(this,314)">314</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>弾性ロール硬度 <span class="unit">[deg]</span></label>
+            <div class="radio-group">
+              <div class="radio-btn selected" onclick="selectHardness(this,20)">20</div>
+              <div class="radio-btn" onclick="selectHardness(this,30)">30</div>
+              <div class="radio-btn" onclick="selectHardness(this,40)">40</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-title">用紙・画像条件</div>
+
+          <div class="form-group">
+            <label>紙種</label>
+            <div class="radio-group">
+              <div class="radio-btn selected" onclick="selectDPaper(this,'plain')">普通紙</div>
+              <div class="radio-btn" onclick="selectDPaper(this,'thick')">厚紙</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>画像濃度 <span class="unit">[%]</span></label>
+            <div class="range-row">
+              <input type="range" id="imageDensity" min="0" max="400" step="10" value="100"
+                     oninput="updateRange('imageDensity','imageDensityVal')">
+              <span class="range-val" id="imageDensityVal">100</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>定着後カール量（入力） <span class="unit">[mm]</span></label>
+            <div class="range-row">
+              <input type="range" id="initialCurl" min="-20" max="20" step="1" value="8"
+                     oninput="updateRange('initialCurl','initialCurlVal')">
+              <span class="range-val" id="initialCurlVal">8</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">粘弾塑性モデルパラメーター</div>
+
+          <div class="form-group">
+            <label>降伏限界応力 σ_Y1 <span class="unit">[MPa]</span></label>
+            <div class="range-row">
+              <input type="range" id="sigY1" min="0.5" max="5" step="0.1" value="1.5"
+                     oninput="updateRange('sigY1','sigY1Val')">
+              <span class="range-val" id="sigY1Val">1.5</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>粘性係数 μ <span class="unit">[MPa·s]</span></label>
+            <div class="range-row">
+              <input type="range" id="viscosity" min="1" max="100" step="1" value="20"
+                     oninput="updateRange('viscosity','viscosityVal')">
+              <span class="range-val" id="viscosityVal">20</span>
+            </div>
+          </div>
+
+          <button class="run-btn" style="background:linear-gradient(135deg,var(--accent2),#c04000)"
+                  onclick="runDecurlerSim()">▶ デカーラシミュレーション実行</button>
+        </div>
+      </div>
+
+      <div id="decurler-results">
+        <div class="card">
+          <div class="card-title">矯正量予測結果</div>
+          <div class="placeholder">
+            <div class="placeholder-icon">🔄</div>
+            デカーラパラメーターを設定して<br>シミュレーションを実行してください
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 3: About -->
+  <div id="tab-about" class="tab-panel">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">搬送経路カール予測モデル</div>
+        <p style="font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:12px">
+          用紙の粘弾性を<strong style="color:var(--text)">2並列Maxwellモデル</strong>で表現し、
+          搬送中の温度・含水率変化と曲げ曲率の時間履歴から最終カール量を予測します。
+        </p>
+        <div class="formula-box">
+          // 2並列Maxwellモデル構成則<br>
+          σ_h + (μ_h/E_h)·dσ_h/dt = μ_h·dε/dt  ...(1)<br>
+          σ_s + (μ_s/E_s)·dσ_s/dt = μ_s·dε/dt  ...(2)<br>
+          σ = σ_h + σ_s                           ...(3)<br><br>
+          // 温度・含水率依存性<br>
+          μ_h(T,W) = μ_h0·exp(-T/T_μh)·exp(-W/W_μh) ...(4)<br><br>
+          // 伸縮率カール係数<br>
+          Ce = dγ/dW                              ...(5)<br><br>
+          // 曲率更新（離散化）<br>
+          σ'_h^(n+1) = A_h·σ'_h^n + B_h·Δγ     ...(9)<br>
+          σ'_s^(n+1) = A_s·σ'_s^n + B_s·Δγ     ...(10)<br>
+          Δγ = Δγ_p - Δγ_c                       ...(12)
+        </div>
+        <div class="info-note">
+          📌 検証結果：普通紙0.94、再生紙0.90、厚紙0.96の相関係数でカール量を予測可能
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">デカーラ矯正量予測モデル</div>
+        <p style="font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:12px">
+          用紙を<strong style="color:var(--text)">粘弾塑性モデル</strong>（バネ＋スライダー＋ダッシュポット）で表現。
+          塑性変形と粘性変形の重ね合わせによりカール矯正メカニズムを再現します。
+        </p>
+        <div class="formula-box">
+          // 粘弾塑性構成則（各要素 i）<br>
+          ε̇_i = σ̇_i/E_i  (|σ_i| ≤ σ_Yi)    ...(19)<br>
+          ε̇_i = σ̇_i/E_i + (σ_i-σ_Yi)/μ_i    ...(20)<br>
+               (|σ_i| &gt; σ_Yi)<br>
+          σ = Σ σ_i                            ...(21)<br><br>
+          // カール矯正量への寄与（支配因子）<br>
+          ① 変形曲率（ローラー曲率に依存）<br>
+          ② 変形時間（搬送速度に反比例）<br>
+          ③ 圧力・引張力は影響小
+        </div>
+        <div class="info-note">
+          📌 検証結果：普通紙・厚紙ともに相関係数0.90以上。パラメーター設計工数を約<strong style="color:var(--accent)">80%削減</strong>達成
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">カール発生メカニズム分類</div>
+        <div class="breakdown" style="gap:14px;margin-top:4px">
+          <div style="padding:12px;background:var(--panel2);border-radius:8px;border-left:3px solid var(--accent)">
+            <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:4px">Ⅰ 表裏伸縮率差カール</div>
+            <div style="font-size:12px;color:var(--muted)">脱湿時の収縮度合いが表裏で異なることによって生じる</div>
+          </div>
+          <div style="padding:12px;background:var(--panel2);border-radius:8px;border-left:3px solid var(--accent2)">
+            <div style="font-size:12px;font-weight:700;color:var(--accent2);margin-bottom:4px">Ⅱ 定着後カール</div>
+            <div style="font-size:12px;color:var(--muted)">定着器通過時の熱と変形ストレスによって発生</div>
+          </div>
+          <div style="padding:12px;background:var(--panel2);border-radius:8px;border-left:3px solid var(--warning)">
+            <div style="font-size:12px;font-weight:700;color:var(--warning);margin-bottom:4px">Ⅲ 搬送経路カール</div>
+            <div style="font-size:12px;color:var(--muted)">搬送中に曲げられた状態で脱湿硬化し形状を記憶</div>
+          </div>
+          <div style="padding:12px;background:var(--panel2);border-radius:8px;border-left:3px solid var(--accent3)">
+            <div style="font-size:12px;font-weight:700;color:var(--accent3);margin-bottom:4px">Ⅳ 大変形カール（デカーラ矯正）</div>
+            <div style="font-size:12px;color:var(--muted)">大きな曲率での強制曲げによる永久変形でカールを矯正</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">測定手法</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.8">
+          <p style="margin-bottom:10px"><strong style="color:var(--text)">TMA（熱機械分析）</strong><br>
+          温湿度制御下での応力-歪み関係測定。高湿条件でのDMA破断問題を回避。</p>
+          <p style="margin-bottom:10px"><strong style="color:var(--text)">伸縮率カール係数測定</strong><br>
+          重力垂直方向配置の試験片で、脱湿量とカール曲率の線形関係を測定。</p>
+          <p style="margin-bottom:10px"><strong style="color:var(--text)">定着後カール分離法</strong><br>
+          用紙を表裏反転して2回測定し平均を取ることで、表裏伸縮率差カールを相殺。</p>
+          <p><strong style="color:var(--text)">有限要素法（Abaqus）</strong><br>
+          デカーラ前後の位置-曲率関係を構造解析で算出。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ===== State =====
+const state = {
+  paperType: 'plain',
+  side: 'felt',
+  dCurv: 125,
+  speed: 117,
+  hardness: 20,
+  dPaperType: 'plain',
+};
+
+// ===== Paper presets (Double Maxwell model parameters) =====
+const paperPresets = {
+  plain:    { thickness: 90,  Eh: 800,  Es: 1500, Ce: 5.0, tauH: 2.0, tauS: 0.15, rh: 0.60, name: "普通紙" },
+  recycled: { thickness: 100, Eh: 750,  Es: 1400, Ce: 4.5, tauH: 1.8, tauS: 0.12, rh: 0.58, name: "再生紙" },
+  thick:    { thickness: 210, Eh: 1200, Es: 2200, Ce: 3.0, tauH: 3.5, tauS: 0.25, rh: 0.65, name: "厚紙"  },
+};
+
+// ===== UI Helpers =====
+function updateRange(id, valId) {
+  const el = document.getElementById(id);
+  const val = parseFloat(el.value);
+  document.getElementById(valId).textContent =
+    Number.isInteger(val) ? val : val.toFixed(1);
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function selectPaper(el, type) {
+  document.querySelectorAll('#tab-transport .radio-group')[0]
+    .querySelectorAll('.radio-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  state.paperType = type;
+  const p = paperPresets[type];
+  setSlider('paperThickness', 'thicknessVal', p.thickness);
+  setSlider('Eh', 'EhVal', p.Eh);
+  setSlider('Es', 'EsVal', p.Es);
+  setSlider('Ce', 'CeVal', p.Ce);
+}
+
+function selectDPaper(el, type) {
+  el.parentElement.querySelectorAll('.radio-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  state.dPaperType = type;
+}
+
+function selectSide(el, side) {
+  el.parentElement.querySelectorAll('.radio-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  state.side = side;
+}
+
+function selectDCurv(el, val) {
+  el.parentElement.querySelectorAll('.radio-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  state.dCurv = val;
+}
+
+function selectSpeed(el, val) {
+  el.parentElement.querySelectorAll('.radio-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  state.speed = val;
+}
+
+function selectHardness(el, val) {
+  el.parentElement.querySelectorAll('.radio-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  state.hardness = val;
+}
+
+function setSlider(id, valId, val) {
+  const el = document.getElementById(id);
+  el.value = val;
+  document.getElementById(valId).textContent =
+    Number.isInteger(val) ? val : val.toFixed(1);
+}
+
+// ===== Transport Path Simulation =====
+// Physical model based on paper Eq.(1)-(13):
+//
+// MECHANISM I  — Shrinkage curl: differential front/back shrinkage during drying
+//   γ_shrink = Ce * ΔW  (Ce = dγ/dW, Eq.5)
+//
+// MECHANISM III — Transport path curl: paper dries while bent → new fiber bonds
+//   form in deformed state → permanent residual curl after relaxation
+//   Modelled as: fraction of path curvature locked by moisture loss during transport
+//
+// MECHANISM II  — Fusing curl: input condition γ_F (measured separately)
+//
+// 2-arm Maxwell relaxation (Eq.9,10):
+//   σ'_h^(n+1) = A_h * σ'_h^n + B_h * Δγ   (long  arm, tauH ~2 s)
+//   σ'_s^(n+1) = A_s * σ'_s^n + B_s * Δγ   (short arm, tauS ~0.15 s)
+//   free curl (unconstrained): γ_free = sh + ss  (normalised, Eq.13)
+
+function runTransportSim() {
+  const Ce          = parseFloat(document.getElementById('Ce').value);
+  const W_ini       = parseFloat(document.getElementById('W_ini').value);
+  const W_cnv       = parseFloat(document.getElementById('W_cnv').value);
+  const tau_W       = parseFloat(document.getElementById('tau_W').value);
+  const gamma_F     = parseFloat(document.getElementById('gamma_F').value);
+  const t_total     = parseFloat(document.getElementById('t_total').value);
+  const gamma_path_max = parseFloat(document.getElementById('gamma_path').value);
+  const t_relax     = parseFloat(document.getElementById('t_relax').value);
+  const side_sign   = state.side === 'felt' ? 1 : -1;
+
+  const preset = paperPresets[state.paperType];
+  const tauH = preset.tauH;
+  const tauS = preset.tauS;
+  const rh   = preset.rh;
+  const rs   = 1 - rh;
+
+  const dt = 0.005;
+  const Ah = Math.exp(-dt / tauH);
+  const As = Math.exp(-dt / tauS);
+  const Bh = rh * (1 - Ah);
+  const Bs = rs * (1 - As);
+
+  // --- Initial state: fusing curl distributed between Maxwell arms ---
+  let sh = rh * gamma_F;
+  let ss = rs * gamma_F;
+
+  // --- Permanent residual curl accumulator (locked by drying-while-bent + shrinkage) ---
+  // gamma_F is already a permanent input; we accumulate additional permanent contributions.
+  let gamma_perm = 0; // additional permanent curl beyond what viscoelastic tracks
+
+  let W_prev = W_ini;
+  const dW_total = Math.abs(W_ini - W_cnv) || 0.001;
+
+  const curlHistory = [gamma_F];
+  const times = [0];
+
+  // ── Phase 1: Transport ──
+  const N_transport = Math.max(1, Math.round(t_total / dt));
+  for (let n = 0; n < N_transport; n++) {
+    const t = (n + 1) * dt;
+
+    // Moisture profile (Eq.15)
+    const W   = W_cnv + (W_ini - W_cnv) * Math.exp(-t / tau_W);
+    const dW  = W - W_prev;
+    W_prev = W;
+
+    // (a) Shrinkage curl increment (Eq.5, Mechanism I)
+    //     Only the differential part contributes; sign follows side orientation
+    const dGamma_shrink = Ce * dW * side_sign; // dW < 0 → paper drying
+
+    // (b) Path curvature increment (sinusoidal profile, peaks at mid-transport)
+    const ph0 = Math.min((n    ) * dt / t_total, 1) * Math.PI;
+    const ph1 = Math.min((n + 1) * dt / t_total, 1) * Math.PI;
+    const gamma_path_curr = gamma_path_max * Math.sin(ph1);
+    const dGamma_path = gamma_path_max * (Math.sin(ph1) - Math.sin(ph0));
+
+    // (c) Mechanism III: drying-while-bent locks current path shape permanently.
+    //     Lock fraction proportional to how much moisture was lost this step
+    //     relative to total moisture loss.
+    if (dW < 0) {
+      const lockFrac = Math.abs(dW) / dW_total;
+      // Locked residual ≈ lockFrac * current_path_curvature * retention_factor
+      // Retention factor (how much of path curl survives): 1 - exp(-tauH/T_transport)
+      const retention = 1 - Math.exp(-tauH / (t_total + 0.001));
+      gamma_perm += lockFrac * gamma_path_curr * retention * 0.45;
+    }
+
+    // Net curvature change seen by Maxwell arms (Eq.12)
+    const dGamma = dGamma_path - dGamma_shrink;
+
+    // Update Maxwell arms (Eq.9,10)
+    sh = Ah * sh + Bh * dGamma;
+    ss = As * ss + Bs * dGamma;
+
+    // Instantaneous free curl
+    const gamma_free = gamma_perm + sh + ss;
+
+    if (n % Math.max(1, Math.floor(N_transport / 60)) === 0) {
+      curlHistory.push(gamma_free);
+      times.push(t);
+    }
+  }
+
+  // ── Phase 2: Relaxation after ejection (paper on tray) ──
+  const N_relax = Math.max(1, Math.round(t_relax / dt));
+  for (let n = 0; n < N_relax; n++) {
+    const t = t_total + (n + 1) * dt;
+    const W  = W_cnv + (W_ini - W_cnv) * Math.exp(-t / tau_W);
+    const dW = W - W_prev;
+    W_prev = W;
+
+    // Remaining shrinkage (paper now flat on tray → no path curvature)
+    const dGamma_shrink = Ce * dW * side_sign;
+    // Shrinkage on flat paper → permanent differential curl
+    gamma_perm += dGamma_shrink;
+
+    // Maxwell arms: no path curvature → only shrinkage drives them
+    sh = Ah * sh + Bh * (-dGamma_shrink);
+    ss = As * ss + Bs * (-dGamma_shrink);
+
+    // Viscoelastic transient decays; permanent stays
+    const gamma_free = gamma_perm + sh + ss;
+
+    if (n % Math.max(1, Math.floor(N_relax / 60)) === 0) {
+      curlHistory.push(gamma_free);
+      times.push(t);
+    }
+  }
+
+  const finalGamma = gamma_perm + sh + ss;
+
+  // Convert γ [1/m] → arc height [mm] on L=210mm paper
+  const L = 0.210;
+  let curlMm;
+  if (Math.abs(finalGamma) < 0.01) {
+    curlMm = 0;
+  } else {
+    curlMm = Math.sign(finalGamma) *
+             (1 - Math.cos(Math.abs(finalGamma) * L / 2)) /
+             Math.abs(finalGamma) * 1000;
+  }
+
+  // Breakdown estimates
+  const shrinkContrib    = Math.abs(Ce * dW_total);
+  const transportContrib = Math.abs(gamma_path_max * (1 - Math.exp(-tauH / (t_total + 0.001))) * 0.45
+                           * (1 - Math.exp(-t_total / tau_W)));
+  const fusingContrib    = Math.abs(gamma_F);
+  const totalContrib     = (shrinkContrib + transportContrib + fusingContrib) || 1;
+  const shr_pct = shrinkContrib    / totalContrib * 100;
+  const tra_pct = transportContrib / totalContrib * 100;
+  const fus_pct = fusingContrib    / totalContrib * 100;
+
+  renderTransportResults(finalGamma, curlMm, shr_pct, tra_pct, fus_pct, curlHistory, times);
+}
+function renderTransportResults(gamma, curlMm, shr, tra, fus, history, times) {
+  const absGamma = Math.abs(gamma);
+  const absCurl = Math.abs(curlMm);
+  const direction = gamma >= 0 ? '上向き（表面へ）' : '下向き（裏面へ）';
+
+  // Severity
+  let sevColor, sevLabel, sevPct;
+  if (absCurl < 3) { sevColor = 'var(--positive)'; sevLabel = '✓ 良好 (規格内)'; sevPct = Math.min(absCurl/3*40, 40); }
+  else if (absCurl < 8) { sevColor = 'var(--warning)'; sevLabel = '△ 注意 (軽微なカール)'; sevPct = 40 + Math.min((absCurl-3)/5*30, 30); }
+  else { sevColor = 'var(--danger)'; sevLabel = '✗ 要対策 (カール過大)'; sevPct = Math.min(70 + (absCurl-8)*3, 100); }
+
+  const html = `
+    <div class="card">
+      <div class="card-title"><span class="status-dot" style="background:var(--accent)"></span>搬送経路カール予測結果</div>
+
+      <div class="result-main">
+        <div class="result-label">最終カール量</div>
+        <div class="result-value" style="color:${Math.abs(curlMm)<3?'var(--positive)':Math.abs(curlMm)<8?'var(--warning)':'var(--danger)'}">
+          ${curlMm.toFixed(1)}
+        </div>
+        <div class="result-unit">mm（用紙端部高さ）</div>
+        <div style="margin-top:8px;font-size:12px;color:var(--muted)">${direction}</div>
+      </div>
+
+      <div class="result-grid">
+        <div class="result-mini">
+          <div class="result-mini-label">カール曲率 γ</div>
+          <div class="result-mini-val" style="color:var(--accent)">${gamma.toFixed(2)}</div>
+          <div style="font-size:10px;color:var(--muted)">[1/m]</div>
+        </div>
+        <div class="result-mini">
+          <div class="result-mini-label">曲率半径</div>
+          <div class="result-mini-val" style="color:var(--accent2)">
+            ${absGamma > 0.01 ? (1000/absGamma).toFixed(0) : '∞'}
+          </div>
+          <div style="font-size:10px;color:var(--muted)">[mm]</div>
+        </div>
+      </div>
+
+      <div class="curl-viz">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-family:'JetBrains Mono',monospace;letter-spacing:1px">カール形状イメージ</div>
+        <div class="curl-canvas-wrap">
+          <canvas id="curlCanvas" width="320" height="130"></canvas>
+        </div>
+      </div>
+
+      <div class="severity-bar" style="margin-bottom:16px">
+        <div class="sev-label">
+          <span>評価</span>
+          <span>${absCurl.toFixed(1)} mm</span>
+        </div>
+        <div class="sev-track">
+          <div class="sev-fill" id="sevFill" style="width:0%;background:${sevColor}"></div>
+        </div>
+        <div class="sev-text" style="color:${sevColor}">${sevLabel}</div>
+      </div>
+
+      <div class="card-title" style="margin-top:16px">カール成分内訳</div>
+      <div class="breakdown">
+        <div class="breakdown-item">
+          <div class="breakdown-name">表裏伸縮率差カール</div>
+          <div class="breakdown-bar-wrap">
+            <div class="breakdown-bar" id="bar-shr" style="width:0%;background:var(--accent)"></div>
+          </div>
+          <div class="breakdown-val" style="color:var(--accent)">${shr.toFixed(0)}%</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-name">搬送経路カール</div>
+          <div class="breakdown-bar-wrap">
+            <div class="breakdown-bar" id="bar-tra" style="width:0%;background:var(--warning)"></div>
+          </div>
+          <div class="breakdown-val" style="color:var(--warning)">${tra.toFixed(0)}%</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-name">定着後カール</div>
+          <div class="breakdown-bar-wrap">
+            <div class="breakdown-bar" id="bar-fus" style="width:0%;background:var(--accent2)"></div>
+          </div>
+          <div class="breakdown-val" style="color:var(--accent2)">${fus.toFixed(0)}%</div>
+        </div>
+      </div>
+
+      <div class="info-note" style="margin-top:14px">
+        📐 2並列Maxwellモデルによる時間積分（Δt=0.01s）。
+        論文式(9)(10)(12)(13)に基づく粘弾性応力勾配の逐次更新。
+      </div>
+    </div>
+  `;
+
+  document.getElementById('transport-results').innerHTML = html;
+
+  // Animate bars
+  setTimeout(() => {
+    document.getElementById('sevFill').style.width = sevPct + '%';
+    document.getElementById('bar-shr').style.width = shr + '%';
+    document.getElementById('bar-tra').style.width = tra + '%';
+    document.getElementById('bar-fus').style.width = fus + '%';
+  }, 50);
+
+  // Draw curl visualization
+  drawCurlShape(gamma, curlMm);
+}
+
+function drawCurlShape(gamma, curlMm) {
+  const canvas = document.getElementById('curlCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = '#0a1628';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(0,212,255,0.06)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 32) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = 0; y < H; y += 32) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // Table surface
+  ctx.strokeStyle = 'rgba(100,116,139,0.4)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(20, H - 30); ctx.lineTo(W - 20, H - 30); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(100,116,139,0.15)';
+  ctx.fillRect(20, H - 30, W - 40, 10);
+
+  ctx.font = '10px JetBrains Mono';
+  ctx.fillStyle = 'rgba(100,116,139,0.6)';
+  ctx.fillText('平板', 22, H - 14);
+
+  const L_px = W - 60;
+  const cx = W / 2;
+  const baseY = H - 30;
+
+  if (Math.abs(gamma) < 0.1) {
+    // Flat paper
+    ctx.strokeStyle = '#00d4ff';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(30, baseY);
+    ctx.lineTo(W - 30, baseY);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(0,212,255,0.15)';
+    ctx.fillRect(30, baseY - 6, W - 60, 6);
+  } else {
+    // Curved paper arc
+    const R = 1 / Math.abs(gamma); // meters
+    const R_px = R * L_px / 0.21; // scale: 210mm paper = L_px pixels
+    const sign = gamma >= 0 ? -1 : 1; // positive gamma = upward curl
+
+    const arcAngle = 0.21 / R; // total angle subtended
+    const halfAngle = arcAngle / 2;
+
+    ctx.beginPath();
+    const steps = 60;
+    for (let i = 0; i <= steps; i++) {
+      const angle = -halfAngle + (i / steps) * arcAngle;
+      const px = cx + R_px * Math.sin(angle);
+      const py = baseY + sign * R_px * (Math.cos(halfAngle) - Math.cos(angle)) * 0.6 - (sign < 0 ? 0 : 0);
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+
+    ctx.strokeStyle = '#00d4ff';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Fill tint
+    ctx.lineTo(cx + R_px * Math.sin(halfAngle), baseY);
+    ctx.lineTo(cx - R_px * Math.sin(halfAngle), baseY);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(0,212,255,0.07)';
+    ctx.fill();
+
+    // Curl height annotation
+    const curlH_px = Math.abs(curlMm) / 210 * L_px * 0.6;
+    if (curlH_px > 4) {
+      ctx.strokeStyle = 'rgba(255,107,53,0.6)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+
+      const edgeX = cx + R_px * Math.sin(halfAngle);
+      ctx.beginPath();
+      ctx.moveTo(edgeX, baseY - curlH_px * sign);
+      ctx.lineTo(edgeX, baseY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = 'var(--accent2)';
+      ctx.font = 'bold 11px JetBrains Mono';
+      ctx.fillText(`${Math.abs(curlMm).toFixed(1)}mm`, edgeX + 4, baseY - curlH_px * sign / 2);
+    }
+  }
+
+  // Label
+  ctx.fillStyle = 'rgba(0,212,255,0.5)';
+  ctx.font = '10px JetBrains Mono';
+  ctx.fillText('γ = ' + gamma.toFixed(2) + ' [1/m]', 10, 16);
+}
+
+// ===== Decurler Simulation =====
+// Based on visco-elasto-plastic model (Eq. 19-21)
+function runDecurlerSim() {
+  const pushIn = parseFloat(document.getElementById('pushIn').value);
+  const imageDensity = parseFloat(document.getElementById('imageDensity').value);
+  const initialCurl = parseFloat(document.getElementById('initialCurl').value);
+  const sigY1 = parseFloat(document.getElementById('sigY1').value) * 1e6;
+  const mu = parseFloat(document.getElementById('viscosity').value) * 1e3;
+
+  const curvature = state.dCurv;      // 1/m
+  const speed = state.speed;           // mm/s
+  const hardness = state.hardness;     // deg
+  const isPaper = state.dPaperType;
+
+  // Paper properties
+  const thick_m = isPaper === 'plain' ? 90e-6 : 210e-6;
+  const E_elastic = isPaper === 'plain' ? 1500e6 : 2200e6;
+
+  // Contact time in decurler (paper length in contact / speed)
+  const contactLen = 4e-3; // ~4mm nip
+  const t_contact = contactLen / (speed * 1e-3); // seconds
+
+  // Effective curvature at paper considering push-in
+  // Higher push-in → paper bends more → effective curvature increases
+  const pushFactor = 1 + pushIn * 0.3;
+  const eff_curvature = curvature * pushFactor;
+
+  // Max strain at paper surface: ε = (h/2) * γ
+  const maxStrain = (thick_m / 2) * eff_curvature;
+
+  // Visco-elasto-plastic model integration
+  // Multiple yield elements - simplified 3-element model
+  const nElements = 5;
+  const sigmaY = [sigY1, sigY1 * 1.5, sigY1 * 2.2, sigY1 * 3.0, sigY1 * 4.0];
+  const Ei = Array(nElements).fill(E_elastic / nElements);
+  const Es_spring = E_elastic * 0.1;
+
+  // Stress in each element
+  let stresses = Array(nElements).fill(0);
+  let strain = 0;
+  const targetStrain = maxStrain;
+  const dt = t_contact / 200;
+  const strainRate = targetStrain / t_contact;
+
+  // Loading phase
+  const N = 200;
+  for (let i = 0; i < N; i++) {
+    const dStrain = strainRate * dt;
+    strain += dStrain;
+
+    for (let j = 0; j < nElements; j++) {
+      const s = stresses[j];
+      if (Math.abs(s) < sigmaY[j]) {
+        // Elastic
+        stresses[j] += Ei[j] * dStrain;
+      } else {
+        // Viscous flow after yield
+        const excess = s - Math.sign(s) * sigmaY[j];
+        stresses[j] += Ei[j] * dStrain - (excess / mu) * dt * Ei[j];
+      }
+    }
+  }
+
+  // Unloading (springback)
+  for (let i = 0; i < 50; i++) {
+    const dStrain = -strainRate * dt * 0.2; // partial springback
+    for (let j = 0; j < nElements; j++) {
+      if (Math.abs(stresses[j]) < sigmaY[j]) {
+        stresses[j] += Ei[j] * dStrain;
+      }
+    }
+  }
+
+  // Residual stress → residual curvature
+  const totalResidualStress = stresses.reduce((a, b) => a + b, 0) + Es_spring * strain * 0.1;
+  const residualCurvature = totalResidualStress / (E_elastic * thick_m / 6);
+
+  // Image density effect: toner adds stiffness → modifies effective curl
+  const tonerEffect = imageDensity / 400 * 0.15 * Math.sign(initialCurl);
+  const correctionGamma = eff_curvature * 0.6 - residualCurvature * 0.4;
+
+  // Final curl after decurler
+  const finalCurlGamma = initialCurl * 0.5 - correctionGamma * 0.3 + tonerEffect;
+
+  // Convert to mm
+  const L = 0.210;
+  const finalCurlMm = Math.abs(finalCurlGamma) > 0.01
+    ? Math.sign(finalCurlGamma) * (1 - Math.cos(Math.abs(finalCurlGamma) * L / 2)) / Math.abs(finalCurlGamma) * 1000
+    : 0;
+
+  const correctionMm = initialCurl - finalCurlMm;
+  const correctionRate = Math.abs(initialCurl) > 0 ? correctionMm / initialCurl * 100 : 0;
+
+  // Determine optimal parameter suggestion
+  let recommendation = '';
+  if (Math.abs(finalCurlMm) > 5) {
+    recommendation = curvature < 333 ? '剛体ローラー曲率を上げるか、押し込み量を増やしてください' : '搬送速度を下げて変形時間を延長してください';
+  } else if (Math.abs(finalCurlMm) < 2) {
+    recommendation = '✓ カール量は規格内に収まっています';
+  } else {
+    recommendation = '△ 軽微なカールあり。パラメーターAまたはBを検討してください';
+  }
+
+  renderDecurlerResults(finalCurlMm, initialCurl, correctionMm, correctionRate, recommendation,
+    eff_curvature, t_contact, maxStrain * 100);
+}
+
+function renderDecurlerResults(finalCurl, initCurl, correction, corrRate, rec,
+  effCurv, tContact, maxStrainPct) {
+  const isGood = Math.abs(finalCurl) < 5;
+  const color = isGood ? 'var(--positive)' : 'var(--danger)';
+  const corrColor = correction > 0 ? 'var(--accent)' : 'var(--danger)';
+
+  // Parameter table suggestion
+  let paramSuggestion = 'B';
+  if (Math.abs(finalCurl) > 10) paramSuggestion = 'X';
+  else if (Math.abs(finalCurl) > 5) paramSuggestion = 'A';
+  else if (Math.abs(finalCurl) < 2) paramSuggestion = 'E';
+
+  const html = `
+    <div class="card">
+      <div class="card-title"><span class="status-dot" style="background:var(--accent2)"></span>デカーラ矯正量予測結果</div>
+
+      <div class="result-main" style="background:linear-gradient(135deg,rgba(26,34,53,0.9),rgba(15,20,35,0.9))">
+        <div class="result-label">矯正後カール量</div>
+        <div class="result-value" style="color:${color}">${finalCurl.toFixed(1)}</div>
+        <div class="result-unit">mm（用紙端部高さ）</div>
+      </div>
+
+      <div class="result-grid">
+        <div class="result-mini">
+          <div class="result-mini-label">矯正量</div>
+          <div class="result-mini-val" style="color:${corrColor}">${correction.toFixed(1)}</div>
+          <div style="font-size:10px;color:var(--muted)">[mm]</div>
+        </div>
+        <div class="result-mini">
+          <div class="result-mini-label">矯正率</div>
+          <div class="result-mini-val" style="color:${corrColor}">${corrRate.toFixed(0)}</div>
+          <div style="font-size:10px;color:var(--muted)">[%]</div>
+        </div>
+      </div>
+
+      <div class="card-title" style="margin-bottom:12px">デカーラ内部解析値</div>
+      <div class="breakdown" style="margin-bottom:16px">
+        <div class="breakdown-item">
+          <div class="breakdown-name">有効曲率</div>
+          <div class="breakdown-bar-wrap">
+            <div class="breakdown-bar" style="width:${Math.min(effCurv/400*100,100)}%;background:var(--accent)"></div>
+          </div>
+          <div class="breakdown-val" style="color:var(--accent)">${effCurv.toFixed(0)} /m</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-name">接触時間</div>
+          <div class="breakdown-bar-wrap">
+            <div class="breakdown-bar" style="width:${Math.min(tContact/0.05*100,100)}%;background:var(--warning)"></div>
+          </div>
+          <div class="breakdown-val" style="color:var(--warning)">${(tContact*1000).toFixed(1)} ms</div>
+        </div>
+        <div class="breakdown-item">
+          <div class="breakdown-name">最大表面歪み</div>
+          <div class="breakdown-bar-wrap">
+            <div class="breakdown-bar" style="width:${Math.min(maxStrainPct/5*100,100)}%;background:var(--accent2)"></div>
+          </div>
+          <div class="breakdown-val" style="color:var(--accent2)">${maxStrainPct.toFixed(2)} %</div>
+        </div>
+      </div>
+
+      <div style="background:var(--panel2);border-radius:8px;border:1px solid var(--border);padding:14px;margin-bottom:14px">
+        <div class="section-head">デカーラパラメーターテーブル推奨</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:56px;height:56px;border-radius:8px;background:var(--accent2);
+               display:flex;align-items:center;justify-content:center;
+               font-size:24px;font-weight:700;color:var(--bg);font-family:'JetBrains Mono',monospace;
+               flex-shrink:0">
+            ${paramSuggestion}
+          </div>
+          <div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:4px">推奨パラメーター</div>
+            <div style="font-size:13px;color:var(--text)">${rec}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px">
+        <div class="section-head">カール推移</div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+          <span style="font-family:'JetBrains Mono',monospace;color:var(--warning)">${initCurl.toFixed(1)} mm</span>
+          <span style="color:var(--muted)">（入力）</span>
+          <div style="flex:1;height:2px;background:linear-gradient(90deg,var(--warning),var(--positive));border-radius:2px"></div>
+          <span style="color:var(--muted)">デカーラ通過</span>
+          <div style="flex:1;height:2px;background:linear-gradient(90deg,var(--positive),var(--accent));border-radius:2px"></div>
+          <span style="font-family:'JetBrains Mono',monospace;color:${color}">${finalCurl.toFixed(1)} mm</span>
+          <span style="color:var(--muted)">（出力）</span>
+        </div>
+      </div>
+
+      <div class="info-note">
+        📐 粘弾塑性モデル（バネ+スライダー+ダッシュポット、n=5要素）による内部応力分布計算。
+        論文式(19)-(21)に基づく有限差分法。曲率・変形時間が支配因子（圧力・引張力の影響は小）。
+      </div>
+    </div>
+  `;
+
+  document.getElementById('decurler-results').innerHTML = html;
+}
+
+// ===== Init =====
+document.addEventListener('DOMContentLoaded', () => {
+  // All range inputs already initialized via HTML defaults
+});
+</script>
+</body>
+</html>
